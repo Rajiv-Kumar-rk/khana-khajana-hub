@@ -14,13 +14,13 @@ const registerUser = asyncHandler( async (req, res, next) => {
 
     // check if the user already exist
     const isUserExist = await User.findOne({
-        $or: [{ email }]
+        $or: [{ email: reqBody.email }]
     });
 
-    if (isUserExist) throw new ApiError(400, "User with provide email already exist.");
+    if (isUserExist) throw new ApiError(400, "User with provided email already exist.");
 
     // get the file path 
-    const profileImageLocalPath = req.files?.avatar?.path;
+    const profileImageLocalPath = req.file?.path;
 
     if (!profileImageLocalPath) throw new ApiError(400, "Profile image is required.");
 
@@ -39,7 +39,7 @@ const registerUser = asyncHandler( async (req, res, next) => {
     })
 
     // cross -check for the user creation
-    const userToExpose = await User.fiindById(user._id).select("-password -refreshToken");
+    const userToExpose = await User.findById(user._id).select("-password -refreshToken");
 
     if (!userToExpose) throw new ApiError(500, "Someting went wrong while registering the user.");
 
