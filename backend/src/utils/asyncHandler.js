@@ -1,6 +1,8 @@
+import { ApiResponse } from "./apiResponse.js";
+
 const asyncHandler = (reqHandler) => {
     return (req, res, next) => {
-        Promise.resolve(reqHandler(req, res, next)).catch((error)=> next(error));
+        Promise.resolve(reqHandler(req, res, next)).catch((error)=> res.status(error?.statusCode).json(new ApiResponse(error?.statusCode, {}, error?.message)));
     }
 };
 
