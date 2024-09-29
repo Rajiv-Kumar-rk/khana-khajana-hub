@@ -5,9 +5,10 @@ import { ApiResponse } from "../utils/apiResponse.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
+import fs from "fs";
 
 const generateAccessAndRefreshToken = async (userId) => {
-    if(!userId) return new ApiError(400, "User account doesn't exist.");
+    if(!userId) throw new ApiError(400, "User account doesn't exist.");
     try {
         const user = await User.findById(userId);
         
@@ -20,51 +21,58 @@ const generateAccessAndRefreshToken = async (userId) => {
         return { accessToken, refreshToken };
 
     } catch (error) {
-        throw new ApiError(500, "Something went wrong while generating the user tokens.");
+        throw new ApiError(err.statusCode? err.statusCode : 500, err.message? err.message : "Something went wrong while generating the user tokens.");
     }
 };
 
 const registerUser = asyncHandler( async (req, res, next) => {
-    // fetch req body
-    const reqBody = req.body;
+    try {
+        // fetch req body
+        const reqBody = req.body;
 
-    // validate the req body data
-    if(!registerUserRequestValidator(reqBody)) throw new ApiError(400, "Invalid request.");
+        // validate the req body data
+        if(!registerUserRequestValidator(reqBody)) throw new ApiError(400, "Invalid request.");
 
-    // check if the user already exist
-    const isUserExist = await User.findOne({
-        $or: [{ email: reqBody.email }]
-    });
+        // get the file path 
+        const profileImageLocalPath = req.file?.path;
 
-    if (isUserExist) throw new ApiError(400, "User with provided email already exist.");
+        if (!profileImageLocalPath) throw new ApiError(400, "Profile image is required.");
 
-    // get the file path 
-    const profileImageLocalPath = req.file?.path;
+        // check if the user already exist
+        const isUserExist = await User.findOne({
+            $or: [{ email: reqBody.email }]
+        });
 
-    if (!profileImageLocalPath) throw new ApiError(400, "Profile image is required.");
+        if (isUserExist) {
+            fs.unlinkSync(profileImageLocalPath); //remove the locally saved file
+            throw new ApiError(400, "User with provided email already exist.");
+        }
 
-    // upload the file on cloudinary
-    const cloudinaryResponse = await uploadOnCloudinary(profileImageLocalPath);
+        // upload the file on cloudinary
+        const cloudinaryResponse = await uploadOnCloudinary(profileImageLocalPath);
 
-    if (cloudinaryResponse === null) throw new ApiError(500, "Someting went wrong while registering the user.");
+        if (cloudinaryResponse === null) throw new ApiError(500, "Someting went wrong while registering the user.");
 
-    // save user
-    const user = await User.create({
-        firstName: reqBody.firstName,
-        lastName: reqBody.lastName,
-        email: reqBody.email.toLowerCase(),
-        avatar: cloudinaryResponse?.url,
-        password: reqBody.password
-    })
+        // save user
+        const user = await User.create({
+            firstName: reqBody.firstName,
+            lastName: reqBody.lastName,
+            email: reqBody.email.toLowerCase(),
+            avatar: cloudinaryResponse?.url,
+            password: reqBody.password
+        })
 
-    // cross -check for the user creation
-    const userToExpose = await User.findById(user._id).select("-password -refreshToken");
+        // cross -check for the user creation
+        const userToExpose = await User.findById(user._id).select("-password -refreshToken");
 
-    if (!userToExpose) throw new ApiError(500, "Someting went wrong while registering the user.");
+        if (!userToExpose) throw new ApiError(500, "Someting went wrong while registering the user.");
 
-    return res.status(200).json(
-        new ApiResponse(200, userToExpose, "User registered successfully.")
-    );
+        return res.status(200).json(
+            new ApiResponse(200, userToExpose, "User registered successfully.")
+        );
+    } catch(err) {
+        throw new ApiError(err.statusCode? err.statusCode : 500, err.message? err.message : "Something went wrong while registering the new user.");
+    }
 });
 
 const loginUser = asyncHandler( async (req, res, next) => {
@@ -112,7 +120,7 @@ const loginUser = asyncHandler( async (req, res, next) => {
             ));
     } catch (err) {
         console.log(err)
-        throw new ApiError(500, "Something went wrong while login the user.");
+        throw new ApiError(err.statusCode? err.statusCode : 500, err.message? err.message : "Something went wrong while login the user.");
     }
 });
 
@@ -142,7 +150,7 @@ const logoutUser = asyncHandler(async (req, res, next) => {
         .json(
             new ApiResponse(
                 200,
-                updatedUser,
+                {},
                 "User Logged Out successfully."
             )
         );
@@ -193,14 +201,200 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         );
     } catch (error) {
         // console.log(error);
-        throw new ApiError(401, "Invalid refresh token.");
+        throw new ApiError(err.statusCode? err.statusCode : 401, err.message? err.message : "Invalid refresh token.");
     }
 
+});
+
+const updateUserProfileAvatar = asyncHandler(async (req, res, next) => {
+    try {
+        // get file path(multer)
+        const avatarPath = req.file?.path;
+
+        if(!avatarPath) throw new ApiError(400, "Avatar file path not found.");
+
+        // upload the file to cloudinary and get the path
+        const cloudinaryResponse = await uploadOnCloudinary(avatarPath);
+
+        if (cloudinaryResponse === null) throw new ApiError(500, "Someting went wrong while updating the user avatar.");
+
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user?._id,
+            {
+                $set: {
+                    avatar: cloudinaryResponse?.url
+                }
+            },
+            { new: true }
+        ).select("-password -refreshToken");
+
+        return res
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            updatedUser,
+            "Updated user avatar successfully."
+        ));
+    } catch(err) {
+        throw new ApiError(err.statusCode? err.statusCode : 500, err.message? err.message : "Something went wrong while updating the user avatar.");
+    }
+});
+
+const updateUserProfileInfo = asyncHandler(async (req, res, next) => {
+    try {
+        const reqBody = req.body;
+
+        const requiredFields = ["email", "firstName", "lastName"];
+        const missingFields = requiredFields.some(field => !reqBody.hasOwnProperty(field));
+
+        if (missingFields) throw new ApiError(400, "Invalid Request. Missing required fields.");
+
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user?._id,
+            {
+                $set: {
+                    firstName: reqBody.firstName,
+                    lastName: reqBody.lastName,
+                    email: reqBody.email
+                }
+            },
+            { new: true }
+        ).select("-password -refreshToken");
+
+        return res
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            updatedUser,
+            "Updated user details successfully."
+        ));
+    } catch(err) {
+        throw new ApiError(err.statusCode? err.statusCode : 500, err.message? err.message : "Something went wrong while updating the user details.");
+    }
+});
+
+const changeCurrentPasssword = asyncHandler(async (req, res, next) => {
+    try {
+        const reqBody = req.body;
+
+        // validate the req body
+        if(!reqBody.oldPassword) throw new ApiError(400,"'oldPassword' field is required.");
+        if(!reqBody.newPassword) throw new ApiError(400,"'newPassword' field is required.");
+        if(!reqBody.confirmNewPassword) throw new ApiError(400,"'confirmNewPassword' field is required.");
+
+        // check whether the provided 'oldPassword' is matching with user document or not
+        const loggedUser = await User.findById(req.user._id);
+        const isPasswordCorrect = await loggedUser.isPasswordCorrect(reqBody.oldPassword);
+
+        if(!isPasswordCorrect) throw new ApiError(400, "Invalid 'oldPassword'.");
+
+        // check whether the both 'newPassword' and 'confirmNewPassword' are matching or not
+        if(reqBody.newPassword !== reqBody.confirmNewPassword) throw new ApiError(400,"'newPassword' and 'confirmNewPassword' fields are not matching.");
+
+        // set newPassword to user document
+        loggedUser.password = reqBody.newPassword;
+        loggedUser.save({validateBeforeSave: false});
+
+        // logout the user from the platform and remove cookies
+        const updatedUser = await User.findByIdAndUpdate(
+            loggedUser._id,
+            {
+                $unset: {refreshToken: 1}
+            },
+            { new: true }
+        )
+
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+
+        return res
+        .status(200)
+        .clearCookie("accessToken", options)
+        .clearCookie("refreshToken", options)
+        .json(new ApiResponse(
+            200,
+            {},
+            "Password changed successfully."
+        ));
+    } catch(err) {
+        throw new ApiError(err.statusCode? err.statusCode : 500, err.message? err.message : "Something went wrong while changing the user password.");
+    }
+});
+
+const getUserProfile = asyncHandler(async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user?._id).select("-password -refreshToken");
+
+        return res
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            user,
+            "User feteched successfully."
+        ));
+    } catch(err) {
+        throw new ApiError(err.statusCode? err.statusCode : 500, err.message? err.message : "Something went wrong while fetching the user information.");
+    }
+});
+
+const forgetPassword = asyncHandler(async (req, res, next) => {
+    try {
+        const reqBody = req.body;
+
+        // validate the req body
+        if(!reqBody.email) throw new ApiError(400,"'email' field is required.");
+        if(!reqBody.newPassword) throw new ApiError(400,"'newPassword' field is required.");
+        if(!reqBody.confirmNewPassword) throw new ApiError(400,"'confirmNewPassword' field is required.");
+
+        const user = await User.findOne({email: reqBody.email?.toLowerCase()});
+
+        if(!user) throw new ApiError(404, "Invalid user email.");
+
+        // check whether the both 'newPassword' and 'confirmNewPassword' are matching or not
+        if(reqBody.newPassword !== reqBody.confirmNewPassword) throw new ApiError(400,"'newPassword' and 'confirmNewPassword' fields are not matching.");
+
+        // set newPassword to user document
+        user.password = reqBody.newPassword;
+        user.save({validateBeforeSave: false});
+
+        // logout the user from the platform and remove cookies
+        const updatedUser = await User.findByIdAndUpdate(
+            user._id,
+            {
+                $unset: {refreshToken: 1}
+            },
+            { new: true }
+        )
+
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+
+        return res
+        .status(200)
+        .clearCookie("accessToken", options)
+        .clearCookie("refreshToken", options)
+        .json(new ApiResponse(
+            200,
+            {},
+            "Password changed successfully."
+        ));
+    } catch(err) {
+        throw new ApiError(err.statusCode? err.statusCode : 500, err.message? err.message : "Something went wrong while changing the user password.");
+    }
 });
 
 export { 
     registerUser,
     loginUser,
     logoutUser,
-    refreshAccessToken
+    refreshAccessToken,
+    updateUserProfileAvatar,
+    updateUserProfileInfo,
+    changeCurrentPasssword,
+    getUserProfile,
+    forgetPassword
 };
