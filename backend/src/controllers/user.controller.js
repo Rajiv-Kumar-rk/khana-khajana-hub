@@ -6,6 +6,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
 import fs from "fs";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshToken = async (userId) => {
     if(!userId) throw new ApiError(400, "User account doesn't exist.");
@@ -59,7 +60,8 @@ const registerUser = asyncHandler( async (req, res, next) => {
             lastName: reqBody.lastName,
             email: reqBody.email.toLowerCase(),
             avatar: cloudinaryResponse?.url,
-            password: reqBody.password
+            password: reqBody.password,
+            role: reqBody.role
         })
 
         // cross -check for the user creation
@@ -293,7 +295,7 @@ const changeCurrentPasssword = asyncHandler(async (req, res, next) => {
 
         // set newPassword to user document
         loggedUser.password = reqBody.newPassword;
-        loggedUser.save({validateBeforeSave: false});
+        await loggedUser.save({validateBeforeSave: false});
 
         // logout the user from the platform and remove cookies
         const updatedUser = await User.findByIdAndUpdate(
@@ -357,7 +359,7 @@ const forgetPassword = asyncHandler(async (req, res, next) => {
 
         // set newPassword to user document
         user.password = reqBody.newPassword;
-        user.save({validateBeforeSave: false});
+        await user.save({validateBeforeSave: false});
 
         // logout the user from the platform and remove cookies
         const updatedUser = await User.findByIdAndUpdate(
@@ -387,6 +389,33 @@ const forgetPassword = asyncHandler(async (req, res, next) => {
     }
 });
 
+const changeUserRole = asyncHandler(async (req, res, next) => {
+    try {
+        const reqBody = req.body;
+
+        if(!reqBody.userId) throw new ApiError(400, "'userId' field is required.");
+        if(!reqBody.role) throw new ApiError(400, "'role' field is required.");
+
+        const user = await User.findById(reqBody.userId);
+
+        if(!user) throw new ApiError(404, "User with requested 'userId' doesn't exist.");
+
+        user.role = reqBody.role;
+        await user.save({validateModifiedOnly: true});
+
+        return res
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            {},
+            "User role updated successfully."
+        ));
+    } catch(err) {
+        console.log(err)
+        throw new ApiError(err.statusCode? err.statusCode:500, err.message? err.message : "Something went wrong while updating the user role.");
+    }
+});
+
 export { 
     registerUser,
     loginUser,
@@ -396,5 +425,6 @@ export {
     updateUserProfileInfo,
     changeCurrentPasssword,
     getUserProfile,
-    forgetPassword
+    forgetPassword,
+    changeUserRole
 };
