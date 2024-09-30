@@ -22,6 +22,13 @@ const userSchema = new mongoose.Schema(
             required: true,
             trim: true
         },
+        role: {
+            type: String,
+            required: true,
+            lowercase: true,
+            enum: ["admin", "manager", "user"],
+            trim: true
+        },
         avatar: {
             type: String, // cloudinary url
         },
@@ -55,7 +62,8 @@ userSchema.methods.generateAccessToken = async function () {
             _id: this._id,
             email: this.email,
             firstName: this.firstName,
-            lastName: this.lastName
+            lastName: this.lastName,
+            role: this.role
         },
         process.env.ACCESS_TOKEN_SECRET,
         {

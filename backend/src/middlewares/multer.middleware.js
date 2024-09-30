@@ -10,4 +10,18 @@ const storage = multer.diskStorage({
     }
   })
   
-  export const upload = multer({ storage });
+export const upload = multer({ storage });
+
+// export const uploadSingleFile = (fileName, req, res) => {
+//   return new Promise((resolve, reject) => {
+//       upload.single(fileName)(req, res, (err) => {
+//           if (err) {
+//             console.log("save err")
+//               reject(err);  // Pass error to be handled in async/await
+//           } else {
+//             console.log("f pass")
+//               resolve(req.file);  // Resolve with the uploaded file
+//           }
+//       });
+//   });
+// };
