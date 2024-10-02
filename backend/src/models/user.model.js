@@ -38,9 +38,18 @@ const userSchema = new mongoose.Schema(
         },
         refreshToken: {
             type: String
+        },
+        cart: {
+            type: Object,
+            default: {}
+        },
+        wishlist: {
+            type: Object,
+            default: {}
         }
     },
     {
+        minimize: false, // will not remove the empty objects for cart or wishlist from the document 
         timestamps: true
     }
 )

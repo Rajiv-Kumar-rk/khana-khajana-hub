@@ -61,7 +61,9 @@ const registerUser = asyncHandler( async (req, res, next) => {
             email: reqBody.email.toLowerCase(),
             avatar: cloudinaryResponse?.url,
             password: reqBody.password,
-            role: reqBody.role
+            role: reqBody.role,
+            cart: {},
+            wishlist: {}
         })
 
         // cross -check for the user creation
