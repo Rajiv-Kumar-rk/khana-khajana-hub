@@ -2,16 +2,32 @@ import { FoodItem } from "../models/foodItem.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils//apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import mongoose from "mongoose";
 
 const addFoodItem = asyncHandler(async (req, res, next) => {
     try {
-        
+        const reqBody = req.body;
+
+        if(!reqBody.name && !reqBody.description && !reqBody.price && !reqBody.categoryId) throw new ApiError(400, "Invalid request.");
+
+        if(!req.file?.path) throw new ApiError(400, "Food item image is required.");
+
+        const uploadedCloudinaryImageRes = await uploadOnCloudinary(req.file?.path);
+
+        const foodItem = await FoodItem.create({
+            name: reqBody.name.trim(),
+            description: reqBody.description.trim(),
+            price: Number(reqBody.price),
+            category: reqBody.categoryId,
+            image: uploadedCloudinaryImageRes?.url
+        });
 
         return res
         .status(200)
         .json(new ApiResponse(
             200,
-            {},
+            foodItem,
             "Food item added successfully."
         ));
     } catch(err) {
@@ -19,17 +35,40 @@ const addFoodItem = asyncHandler(async (req, res, next) => {
     }
 });
 
-
-
 const updateFoodItem = asyncHandler(async (req, res, next) => {
     try {
-        
+        const reqBody = req.body;
+
+        if(!reqBody.foodItemId) throw new ApiError(400, "'foodItemId' is required.");
+
+        if(!reqBody.name && !reqBody.description && !reqBody.price && !reqBody.categoryId) throw new ApiError(400, "Invalid request.");
+
+        if(!req.file?.path) throw new ApiError(400, "Food item image is required.");
+        const uploadedCloudinaryImageRes = await uploadOnCloudinary(req.file?.path);
+
+        const isItemExist = await FoodItem.findById(reqBody.foodItemId);
+
+        if(!isItemExist) throw new ApiError(404, "Food item with request id doesn't exist.");
+
+        const updatedFoodItem = await FoodItem.findByIdAndUpdate(
+            reqBody.foodItemId,
+            {
+                $set: {
+                    name: reqBody.name,
+                    description: reqBody.description,
+                    price: reqBody.price,
+                    category: reqBody.categoryId,
+                    image: uploadedCloudinaryImageRes?.url
+                }
+            },
+            { new: true }
+        );
 
         return res
         .status(200)
         .json(new ApiResponse(
             200,
-            {},
+            updatedFoodItem,
             "Food item updated successfully."
         ));
     } catch(err) {
@@ -79,7 +118,6 @@ const getFoodItemsList = asyncHandler(async (req, res, next) => {
 
 const getFoodItemDetails = asyncHandler(async (req, res, next) => {
     try {
-        console.log("params: ", rq.params);
         const itemId = req.params.foodItemId;
 
         if(!itemId) throw new ApiError(400, "Food item id is required.");
