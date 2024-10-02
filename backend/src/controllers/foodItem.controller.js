@@ -1,4 +1,5 @@
 import { FoodItem } from "../models/foodItem.model.js";
+import { Category } from "../models/category.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils//apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
@@ -13,6 +14,9 @@ const addFoodItem = asyncHandler(async (req, res, next) => {
 
         if(!req.file?.path) throw new ApiError(400, "Food item image is required.");
 
+        const isCategoryExist = await Category.findById(reqBody.categoryId);
+        if(!isCategoryExist) throw new ApiError(404, "Category with request id doesn't exist.");
+
         const uploadedCloudinaryImageRes = await uploadOnCloudinary(req.file?.path);
 
         const foodItem = await FoodItem.create({
@@ -23,11 +27,13 @@ const addFoodItem = asyncHandler(async (req, res, next) => {
             image: uploadedCloudinaryImageRes?.url
         });
 
+        const finalItem = await FoodItem.findById(foodItem._id).populate("category", "name -_id");
+
         return res
         .status(200)
         .json(new ApiResponse(
             200,
-            foodItem,
+            finalItem,
             "Food item added successfully."
         ));
     } catch(err) {
@@ -50,6 +56,9 @@ const updateFoodItem = asyncHandler(async (req, res, next) => {
 
         if(!isItemExist) throw new ApiError(404, "Food item with request id doesn't exist.");
 
+        const isCategoryExist = await Category.findById(reqBody.categoryId);
+        if(!isCategoryExist) throw new ApiError(404, "Category with request id doesn't exist.");
+
         const updatedFoodItem = await FoodItem.findByIdAndUpdate(
             reqBody.foodItemId,
             {
@@ -62,7 +71,7 @@ const updateFoodItem = asyncHandler(async (req, res, next) => {
                 }
             },
             { new: true }
-        );
+        ).populate("category", "name -_id");;
 
         return res
         .status(200)
@@ -89,7 +98,7 @@ const removeFoodItem = asyncHandler(async (req, res, next) => {
         await FoodItem.findByIdAndDelete(itemId);
 
         return res
-        .status(200)
+        .status(204)
         .json(new ApiResponse(
             200,
             {},
@@ -102,7 +111,8 @@ const removeFoodItem = asyncHandler(async (req, res, next) => {
 
 const getFoodItemsList = asyncHandler(async (req, res, next) => {
     try {
-        const foodItems = await FoodItem.find({});
+        const foodItems = await FoodItem.find({})
+            .populate("category", "name -_id");
 
         return res
         .status(200)
@@ -122,7 +132,8 @@ const getFoodItemDetails = asyncHandler(async (req, res, next) => {
 
         if(!itemId) throw new ApiError(400, "Food item id is required.");
 
-        const foodItem = await FoodItem.findById(itemId);
+        const foodItem = await FoodItem.findById(itemId)
+            .populate("category", "name -_id");
 
         return res
         .status(200)
