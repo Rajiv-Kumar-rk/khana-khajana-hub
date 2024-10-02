@@ -26,10 +26,14 @@ app.use(cookieParser());
 import userRouter from "./src/routes/user.route.js";
 import foodRouter from "./src/routes/foodItem.route.js";
 import categoryRouter from "./src/routes/category.route.js";
+import cartRouter from "./src/routes/cart.route.js";
+import wishlistRouter from "./src/routes/wishlist.route.js";
 
 // routes declaration
 app.use("/users", userRouter);
 app.use("/api/foodItems", foodRouter);
 app.use("/api/categories", categoryRouter);
+app.use("/api/user/wishlist", wishlistRouter);
+app.use("/api/user/cart", cartRouter);
 
 export { app };
