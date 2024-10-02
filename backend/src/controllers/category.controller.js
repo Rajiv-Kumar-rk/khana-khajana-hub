@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils//apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { Category } from "../models/category.model.js";
+import { FoodItem } from "../models/foodItem.model.js";
 
 const addCategory = asyncHandler(async (req, res, next) => {
     try {
@@ -63,10 +64,14 @@ const removeCategory = asyncHandler(async (req, res, next) => {
         const isCategoryExist = await Category.findById(id);
         if(!isCategoryExist) throw new ApiError(404, "Category with request id doesn't exist.");
 
+        const isCategoryAttachedToAnyFoodItem = await FoodItem.exists({category: id});
+
+        if(isCategoryAttachedToAnyFoodItem) throw new ApiError(409, "Requested category is attached to few or more food items.");
+
         await Category.findByIdAndDelete(id);
 
         return res
-        .status(200)
+        .status(204)
         .json(new ApiResponse(
             200,
             {},
