@@ -28,12 +28,14 @@ import foodRouter from "./src/routes/foodItem.route.js";
 import categoryRouter from "./src/routes/category.route.js";
 import cartRouter from "./src/routes/cart.route.js";
 import wishlistRouter from "./src/routes/wishlist.route.js";
+import orderRouter from "./src/routes/order.route.js";
 
 // routes declaration
-app.use("/users", userRouter);
-app.use("/api/foodItems", foodRouter);
-app.use("/api/categories", categoryRouter);
-app.use("/api/user/wishlist", wishlistRouter);
-app.use("/api/user/cart", cartRouter);
+app.use("/api/v1/users", userRouter);
+app.use("/api/v1/foodItems", foodRouter);
+app.use("/api/v1/categories", categoryRouter);
+app.use("/api/v1/user/wishlist", wishlistRouter);
+app.use("/api/v1/user/cart", cartRouter);
+app.use("/api/v1/user/order", orderRouter);
 
 export { app };
