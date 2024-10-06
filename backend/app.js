@@ -40,6 +40,6 @@ app.use("/api/v1/foodItems", foodRouter);
 app.use("/api/v1/categories", categoryRouter);
 app.use("/api/v1/user/wishlist", wishlistRouter);
 app.use("/api/v1/user/cart", cartRouter);
-app.use("/api/v1/user/order", orderRouter);
+app.use("/api/v1/order", orderRouter);
 
 export { app };
