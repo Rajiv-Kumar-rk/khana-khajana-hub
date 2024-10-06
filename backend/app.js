@@ -1,8 +1,12 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import morgan from "morgan";
 
 const app = express();
+
+// Use morgan middleware to log requests
+app.use(morgan('combined'));  // 'combined' is a predefined format for logging
 
 app.use(cors({
     origin: process.env.CORS_ORIGIN,
