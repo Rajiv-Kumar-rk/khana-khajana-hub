@@ -35,7 +35,13 @@ const registerUser = asyncHandler( async (req, res, next) => {
         if(!registerUserRequestValidator(reqBody)) throw new ApiError(400, "Invalid request.");
 
         // get the file path 
-        const profileImageLocalPath = req.file?.path;
+        let profileImageLocalPath = req.file?.path;
+
+        if (!profileImageLocalPath) {
+            // Get the file path, or use the default profile image path
+            const defaultImagePath = `${process.cwd()}/public/default-images/default-profile.jpg`;
+            profileImageLocalPath = defaultImagePath;
+        }
 
         if (!profileImageLocalPath) throw new ApiError(400, "Profile image is required.");
 
@@ -45,19 +51,21 @@ const registerUser = asyncHandler( async (req, res, next) => {
         });
 
         if (isUserExist) {
-            fs.unlinkSync(profileImageLocalPath); //remove the locally saved file
+            if (req.file?.path) {
+                fs.unlinkSync(profileImageLocalPath); //remove the locally saved file
+            }
             throw new ApiError(400, "User with provided email already exist.");
         }
 
         // upload the file on cloudinary
-        const cloudinaryResponse = await uploadOnCloudinary(profileImageLocalPath);
+        const cloudinaryResponse = await uploadOnCloudinary(profileImageLocalPath, (req.file?.path)? true : false);
 
-        if (cloudinaryResponse === null) throw new ApiError(500, "Someting went wrong while registering the user.");
+        if (cloudinaryResponse === null) throw new ApiError(500, "Someting went wrong while registering the user1.");
 
         // save user
         const user = await User.create({
-            firstName: reqBody.firstName,
-            lastName: reqBody.lastName,
+            firstName: (reqBody.firstName && reqBody.firstName.length > 0) ? reqBody.firstName.length :  "",
+            lastName: (reqBody.lastName && reqBody.firstName.length > 0) ? reqBody.lastName.length : "",
             email: reqBody.email.toLowerCase(),
             avatar: cloudinaryResponse?.url,
             password: reqBody.password,
@@ -69,7 +77,7 @@ const registerUser = asyncHandler( async (req, res, next) => {
         // cross -check for the user creation
         const userToExpose = await User.findById(user._id).select("-password -refreshToken");
 
-        if (!userToExpose) throw new ApiError(500, "Someting went wrong while registering the user.");
+        if (!userToExpose) throw new ApiError(500, "Someting went wrong while registering the user2.");
 
         return res.status(200).json(
             new ApiResponse(200, userToExpose, "User registered successfully.")
@@ -190,8 +198,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             secure: true
         };
     
-        const {accessToken, newRefreshToken} = await generateAccessAndRefreshToken(user._id);
-    
+        const {accessToken, refreshToken:newRefreshToken} = await generateAccessAndRefreshToken(user._id);
         return res
         .status(200)
         .cookie("accessToken", accessToken, options)
@@ -203,8 +210,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
                 "Access token refreshed."
             )
         );
-    } catch (error) {
-        // console.log(error);
+    } catch (err) {
         throw new ApiError(err.statusCode? err.statusCode : 401, err.message? err.message : "Invalid refresh token.");
     }
 
