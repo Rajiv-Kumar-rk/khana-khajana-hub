@@ -8,16 +8,17 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-export const uploadOnCloudinary = async (localFilePath)=> {
+export const uploadOnCloudinary = async (localFilePath, isImageUploadedByUser)=> {
     try {
-        if (!localFilePath) return null;
+        if (!localFilePath) throw new Error("'localFilePath' is empty");
         const res = await cloudinary.uploader.upload(localFilePath, {
             resource_type: "auto"
         });
-        fs.unlinkSync(localFilePath); //remove the locally saved file
+        if (isImageUploadedByUser) fs.unlinkSync(localFilePath); //remove the locally saved file
         return res;
     } catch (error) {
-        fs.unlinkSync(localFilePath); //remove the locally saved file incase of error
+        console.log(error);
+        if (isImageUploadedByUser) fs.unlinkSync(localFilePath); //remove the locally saved file incase of error
         return null;
     }
 }
