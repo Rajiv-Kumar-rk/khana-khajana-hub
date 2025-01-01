@@ -6,8 +6,8 @@ import { addFoodItem, getFoodItemDetails, getFoodItemsList, removeFoodItem, upda
 
 const router = Router();
 
-router.route("/").get(authMiddleware, roleMiddleware(["admin", "manager"]), getFoodItemsList);
-router.route("/:foodItemId").get(authMiddleware, roleMiddleware(["admin", "manager"]), getFoodItemDetails);
+router.route("/").get(authMiddleware, roleMiddleware(["admin", "manager", "staff", "user"]), getFoodItemsList);
+router.route("/:foodItemId").get(authMiddleware, roleMiddleware(["admin", "manager", "staff", "user"]), getFoodItemDetails);
 router.route("/add").post(authMiddleware, roleMiddleware(["admin", "manager"]), upload.single("image"), addFoodItem);
 router.route("/remove/:foodItemId").post(authMiddleware, roleMiddleware(["admin", "manager"]), removeFoodItem);
 router.route("/update").put(authMiddleware, roleMiddleware(["admin", "manager"]), upload.single("image"), updateFoodItem);

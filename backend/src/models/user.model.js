@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true,
             lowercase: true,
-            enum: ["admin", "manager", "user"],
+            enum: ["admin", "manager", "staff", "user"],
             trim: true
         },
         avatar: {
